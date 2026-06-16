@@ -1,0 +1,14 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
+[tools]
+cocogitto = "latest"
+fd = "latest"
+ffmpeg = "latest"
+"github:aria2/aria2" = "latest"
+"github:wait4x/wait4x" = "latest"
+lefthook = "latest"
+"llama.cpp" = { version = "latest", version_prefix = "b" }
+task = "latest"
+tombi = "latest"
+uv = "latest"
+yamlfmt = "latest"

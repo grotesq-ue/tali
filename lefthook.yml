@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://www.schemastore.org/lefthook.json
+pre-commit:
+  commands:
+    lint-toml:
+      run: tombi lint .
+    format-toml:
+      run: tombi format .
+      stage_fixed: true
+    format-yaml:
+      run: yamlfmt .
+      stage_fixed: true
+commit-msg:
+  commands:
+    lint:
+      run: cog verify --file {1}

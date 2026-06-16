@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# Author: Ulyses Edcel C. Adrales <ulysesadrales@gmail.com>
+version: "3"
+env:
+  OPEN_WEBUI_DATA: .data
+  DEFAULT_REASONING_SRC: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
+  DEFAULT_REASONING_MODEL: gemma-4-E2B-it-qat-UD-Q4_K_XL
+  DEFAULT_REASONING_DIR: models/reasoning
+  DEFAULT_REASONING_PORT: 8888
+  DEFAULT_EMBEDDING_SRC: https://huggingface.co/unsloth/embeddinggemma-300m-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf
+  DEFAULT_EMBEDDING_MODEL: embeddinggemma-300M-Q8_0
+  DEFAULT_EMBEDDING_DIR: models/embedding
+  DEFAULT_EMBEDDING_PORT: 8008
+tasks:
+  launch:
+    desc: Launch the AI interface server
+    deps: [serve-reasoning, serve-embedding]
+    env:
+      DATA_DIR: "{{.OPEN_WEBUI_DATA}}"
+      OPENAI_API_BASE_URL: http://localhost:{{.DEFAULT_REASONING_PORT}}/v1
+      DEFAULT_MODELS: "{{.DEFAULT_REASONING_MODEL}}"
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_OPENAI_API_BASE_URL: http://localhost:{{.DEFAULT_EMBEDDING_PORT}}/v1
+      RAG_EMBEDDING_MODEL: "{{.DEFAULT_EMBEDDING_MODEL}}"
+    cmds:
+      - task: scaffold
+        vars:
+          DIR: "{{.OPEN_WEBUI_DATA}}"
+      - defer: {task: clean-up}
+      - uvx --python 3.11 open-webui serve
+  scaffold:
+    desc: Create directory unless existing
+    internal: true
+    status:
+      - fd --type d {{.DIR}} --quiet
+    cmd: mkdir -p {{.DIR}}
+  dl-default-model:
+    desc: Download default GGUF model
+    internal: true
+    status:
+      - fd -q -e gguf {{.DIR}}
+    cmd: aria2c -x16 -s16 -d {{.DIR}} -o {{.FILE}} {{.SRC}}
+  serve-reasoning:
+    desc: Launch llama server for reasoning models
+    internal: true
+    env:
+      LLAMA_ARG_PORT: "{{.DEFAULT_REASONING_PORT}}"
+      LLAMA_ARG_MODELS_DIR: "{{.DEFAULT_REASONING_DIR}}"
+      LLAMA_ARG_TEMPERATURE: 0
+      LLAMA_ARG_TOOLS: all
+    cmds:
+      - task: scaffold
+        vars:
+          DIR: $DEFAULT_REASONING_DIR
+      - task: dl-default-model
+        vars:
+          DIR: $DEFAULT_REASONING_DIR
+          SRC: $DEFAULT_REASONING_SRC
+          FILE: $DEFAULT_REASONING_MODEL.gguf
+      - llama-server &
+      - task: delay
+      - wait4x http http://localhost:{{.DEFAULT_REASONING_PORT}}/health
+  serve-embedding:
+    desc: Launch llama server for embedding models
+    internal: true
+    env:
+      LLAMA_ARG_PORT: "{{.DEFAULT_EMBEDDING_PORT}}"
+      LLAMA_ARG_MODELS_DIR: "{{.DEFAULT_EMBEDDING_DIR}}"
+      LLAMA_ARG_EMBEDDINGS: true
+    cmds:
+      - task: scaffold
+        vars:
+          DIR: $DEFAULT_EMBEDDING_DIR
+      - task: dl-default-model
+        vars:
+          DIR: $DEFAULT_EMBEDDING_DIR
+          SRC: $DEFAULT_EMBEDDING_SRC
+          FILE: $DEFAULT_EMBEDDING_MODEL.gguf
+      - llama-server &
+      - task: delay
+      - wait4x http http://localhost:{{.DEFAULT_EMBEDDING_PORT}}/health
+  delay:
+    desc: Add 3 seconds delay
+    internal: true
+    cmds:
+      - cmd: sleep 3
+        platforms: [linux, darwin]
+      - cmd: cmd.exe /c "timeout /t 3 /nobreak"
+  clean-up:
+    desc: Shutdown all llama servers
+    cmds:
+      - cmd: pkill -SIGINT -f llama-server || true
+        platforms: [linux, darwin]
+      - cmd: taskkill /IM "llama-server.exe" /T /F || exit 0
+        platforms: [windows]
