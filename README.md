@@ -9,7 +9,7 @@ This is just a scaffolding template for an opinionated local inference setup. Fe
 
 2. Get the template:
 ```
-mise exec node -- npx giget gh:grotesq-ue/tali local-inference
+mise exec node -- npx giget git:grotesq-ue/tali local-inference
 ```
 
 3. Change directory to the templated folder.
