@@ -38,7 +38,7 @@ tasks:
     desc: Download default GGUF model
     internal: true
     status:
-      - fd -q -e gguf {{.DIR}}
+      - fd -q -e gguf . {{.DIR}}
     cmd: aria2c -x16 -s16 -d {{.DIR}} -o {{.FILE}} {{.SRC}}
   serve-reasoning:
     desc: Launch llama server for reasoning models
@@ -86,6 +86,7 @@ tasks:
       - cmd: sleep 3
         platforms: [linux, darwin]
       - cmd: cmd.exe /c "timeout /t 3 /nobreak"
+        platforms: [windows]
   clean-up:
     desc: Shutdown all llama servers
     cmds:
