@@ -3,22 +3,22 @@
 version: "3"
 env:
   OPEN_WEBUI_DATA: .data
-  DEFAULT_REASONING_SRC: https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/main/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf
-  DEFAULT_REASONING_MODEL: gemma-4-E2B-it-qat-UD-Q4_K_XL
-  DEFAULT_REASONING_DIR: models/reasoning
-  DEFAULT_REASONING_PORT: 8888
-  DEFAULT_EMBEDDING_SRC: https://huggingface.co/unsloth/embeddinggemma-300m-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf
-  DEFAULT_EMBEDDING_MODEL: embeddinggemma-300M-Q8_0
+  DEFAULT_INSTRUCT_SRC: https://huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf
+  DEFAULT_INSTRUCT_MODEL: Llama-3.2-3B-Instruct-Q4_K_M
+  DEFAULT_INSTRUCT_DIR: models/instruct
+  DEFAULT_INSTRUCT_PORT: 8888
+  DEFAULT_EMBEDDING_SRC: https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
+  DEFAULT_EMBEDDING_MODEL: nomic-embed-text-v1.5.f16
   DEFAULT_EMBEDDING_DIR: models/embedding
   DEFAULT_EMBEDDING_PORT: 8008
 tasks:
   launch:
     desc: Launch the AI interface server
-    deps: [serve-reasoning, serve-embedding]
+    deps: [serve-instruct, serve-embedding]
     env:
       DATA_DIR: "{{.OPEN_WEBUI_DATA}}"
-      OPENAI_API_BASE_URL: http://localhost:{{.DEFAULT_REASONING_PORT}}/v1
-      DEFAULT_MODELS: "{{.DEFAULT_REASONING_MODEL}}"
+      OPENAI_API_BASE_URL: http://localhost:{{.DEFAULT_INSTRUCT_PORT}}/v1
+      DEFAULT_MODELS: "{{.DEFAULT_INSTRUCT_MODEL}}"
       RAG_EMBEDDING_ENGINE: openai
       RAG_OPENAI_API_BASE_URL: http://localhost:{{.DEFAULT_EMBEDDING_PORT}}/v1
       RAG_EMBEDDING_MODEL: "{{.DEFAULT_EMBEDDING_MODEL}}"
@@ -40,26 +40,31 @@ tasks:
     status:
       - fd -q -e gguf . {{.DIR}}
     cmd: aria2c -x16 -s16 -d {{.DIR}} -o {{.FILE}} {{.SRC}}
-  serve-reasoning:
-    desc: Launch llama server for reasoning models
+  serve-instruct:
+    desc: Launch llama server for instruct models
     internal: true
     env:
-      LLAMA_ARG_PORT: "{{.DEFAULT_REASONING_PORT}}"
-      LLAMA_ARG_MODELS_DIR: "{{.DEFAULT_REASONING_DIR}}"
+      LLAMA_ARG_PORT: "{{.DEFAULT_INSTRUCT_PORT}}"
+      LLAMA_ARG_MODELS_DIR: "{{.DEFAULT_INSTRUCT_DIR}}"
       LLAMA_ARG_TEMPERATURE: 0
+      LLAMA_ARG_CTX_SIZE: 4096
+      LLAMA_ARG_CACHE_TYPE_K: q8_0
+      LLAMA_ARG_CACHE_TYPE_V: q8_0
+      LLAMA_ARG_FLASH_ATTN: 1
+      LLAMA_ARGS_THREADS: 4
       LLAMA_ARG_TOOLS: all
     cmds:
       - task: scaffold
         vars:
-          DIR: $DEFAULT_REASONING_DIR
+          DIR: $DEFAULT_INSTRUCT_DIR
       - task: dl-default-model
         vars:
-          DIR: $DEFAULT_REASONING_DIR
-          SRC: $DEFAULT_REASONING_SRC
-          FILE: $DEFAULT_REASONING_MODEL.gguf
+          DIR: $DEFAULT_INSTRUCT_DIR
+          SRC: $DEFAULT_INSTRUCT_SRC
+          FILE: $DEFAULT_INSTRUCT_MODEL.gguf
       - llama-server &
       - task: delay
-      - wait4x http http://localhost:{{.DEFAULT_REASONING_PORT}}/health
+      - wait4x http http://localhost:{{.DEFAULT_INSTRUCT_PORT}}/health
   serve-embedding:
     desc: Launch llama server for embedding models
     internal: true
